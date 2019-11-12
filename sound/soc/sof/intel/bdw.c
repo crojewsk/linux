@@ -360,8 +360,8 @@ static irqreturn_t bdw_irq_thread(int irq, void *context)
 static int bdw_send_msg(struct snd_sof_dev *sdev, struct snd_sof_ipc_msg *msg)
 {
 	/* send the message */
-	sof_mailbox_write(sdev, sdev->host_box.offset, msg->msg_data,
-			  msg->msg_size);
+	sof_mailbox_write(sdev, sdev->host_box.offset, msg->tx.data,
+			  msg->tx.size);
 	snd_sof_dsp_write(sdev, BDW_DSP_BAR, SHIM_IPCX, SHIM_IPCX_BUSY);
 
 	return 0;
@@ -387,20 +387,20 @@ static void bdw_get_reply(struct snd_sof_dev *sdev)
 	sof_mailbox_read(sdev, sdev->host_box.offset, &reply, sizeof(reply));
 
 	if (reply.error < 0) {
-		memcpy(msg->reply_data, &reply, sizeof(reply));
+		memcpy(msg->rx.data, &reply, sizeof(reply));
 		ret = reply.error;
 	} else {
 		/* reply correct size ? */
-		if (reply.hdr.size != msg->reply_size) {
+		if (reply.hdr.size != msg->rx.size) {
 			dev_err(sdev->dev, "error: reply expected %zu got %u bytes\n",
-				msg->reply_size, reply.hdr.size);
+				msg->rx.size, reply.hdr.size);
 			ret = -EINVAL;
 		}
 
 		/* read the message */
-		if (msg->reply_size > 0)
+		if (msg->rx.size > 0)
 			sof_mailbox_read(sdev, sdev->host_box.offset,
-					 msg->reply_data, msg->reply_size);
+					 msg->rx.data, msg->rx.size);
 	}
 
 	msg->reply_error = ret;

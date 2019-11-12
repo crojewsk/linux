@@ -57,8 +57,8 @@ static void hda_dsp_ipc_dsp_done(struct snd_sof_dev *sdev)
 int hda_dsp_ipc_send_msg(struct snd_sof_dev *sdev, struct snd_sof_ipc_msg *msg)
 {
 	/* send IPC message to DSP */
-	sof_mailbox_write(sdev, sdev->host_box.offset, msg->msg_data,
-			  msg->msg_size);
+	sof_mailbox_write(sdev, sdev->host_box.offset, msg->tx.data,
+			  msg->tx.size);
 	snd_sof_dsp_write(sdev, HDA_DSP_BAR, HDA_DSP_REG_HIPCI,
 			  HDA_DSP_REG_HIPCI_BUSY);
 
@@ -82,7 +82,7 @@ void hda_dsp_ipc_get_reply(struct snd_sof_dev *sdev)
 		return;
 	}
 
-	hdr = msg->msg_data;
+	hdr = msg->tx.data;
 	if (hdr->cmd == (SOF_IPC_GLB_PM_MSG | SOF_IPC_PM_CTX_SAVE) ||
 	    hdr->cmd == (SOF_IPC_GLB_PM_MSG | SOF_IPC_PM_GATE)) {
 		/*
@@ -93,7 +93,7 @@ void hda_dsp_ipc_get_reply(struct snd_sof_dev *sdev)
 		reply.error = 0;
 		reply.hdr.cmd = SOF_IPC_GLB_REPLY;
 		reply.hdr.size = sizeof(reply);
-		memcpy(msg->reply_data, &reply, sizeof(reply));
+		memcpy(msg->rx.data, &reply, sizeof(reply));
 		goto out;
 	}
 
@@ -102,20 +102,20 @@ void hda_dsp_ipc_get_reply(struct snd_sof_dev *sdev)
 			 sizeof(reply));
 
 	if (reply.error < 0) {
-		memcpy(msg->reply_data, &reply, sizeof(reply));
+		memcpy(msg->rx.data, &reply, sizeof(reply));
 		ret = reply.error;
 	} else {
 		/* reply correct size ? */
-		if (reply.hdr.size != msg->reply_size) {
+		if (reply.hdr.size != msg->rx.size) {
 			dev_err(sdev->dev, "error: reply expected %zu got %u bytes\n",
-				msg->reply_size, reply.hdr.size);
+				msg->rx.size, reply.hdr.size);
 			ret = -EINVAL;
 		}
 
 		/* read the message */
-		if (msg->reply_size > 0)
+		if (msg->rx.size > 0)
 			sof_mailbox_read(sdev, sdev->host_box.offset,
-					 msg->reply_data, msg->reply_size);
+					 msg->rx.data, msg->rx.size);
 	}
 
 out:

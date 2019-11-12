@@ -289,14 +289,17 @@ struct snd_sof_mailbox {
 	size_t size;
 };
 
+struct sof_ipc_message {
+	u64 header;
+	void *data;
+	size_t size;
+};
+
 /* IPC message descriptor for host <-> DSP IO */
 struct snd_sof_ipc_msg {
 	/* message data */
-	u32 header;
-	void *msg_data;
-	void *reply_data;
-	size_t msg_size;
-	size_t reply_size;
+	struct sof_ipc_message tx;
+	struct sof_ipc_message rx;
 	int reply_error;
 
 	wait_queue_head_t waitq;

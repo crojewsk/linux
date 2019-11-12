@@ -200,7 +200,7 @@ static int tx_wait_done(struct snd_sof_ipc *ipc, struct snd_sof_ipc_msg *msg,
 			void *reply_data)
 {
 	struct snd_sof_dev *sdev = ipc->sdev;
-	struct sof_ipc_cmd_hdr *hdr = msg->msg_data;
+	struct sof_ipc_cmd_hdr *hdr = msg->tx.data;
 	int ret;
 
 	/* wait for DSP IPC completion */
@@ -215,11 +215,11 @@ static int tx_wait_done(struct snd_sof_ipc *ipc, struct snd_sof_ipc_msg *msg,
 	} else {
 		/* copy the data returned from DSP */
 		ret = msg->reply_error;
-		if (msg->reply_size)
-			memcpy(reply_data, msg->reply_data, msg->reply_size);
+		if (msg->rx.size)
+			memcpy(reply_data, msg->rx.data, msg->rx.size);
 		if (ret < 0)
 			dev_err(sdev->dev, "error: ipc error for 0x%x size %zu\n",
-				hdr->cmd, msg->reply_size);
+				hdr->cmd, msg->rx.size);
 		else
 			ipc_log_header(sdev->dev, "ipc tx succeeded", hdr->cmd);
 	}
@@ -248,14 +248,14 @@ static int sof_ipc_tx_message_unlocked(struct snd_sof_ipc *ipc, u32 header,
 	/* initialise the message */
 	msg = &ipc->msg;
 
-	msg->header = header;
-	msg->msg_size = msg_bytes;
-	msg->reply_size = reply_bytes;
+	msg->tx.header = header;
+	msg->tx.size = msg_bytes;
+	msg->rx.size = reply_bytes;
 	msg->reply_error = 0;
 
 	/* attach any data */
 	if (msg_bytes)
-		memcpy(msg->msg_data, msg_data, msg_bytes);
+		memcpy(msg->tx.data, msg_data, msg_bytes);
 
 	sdev->msg = msg;
 
@@ -274,7 +274,7 @@ static int sof_ipc_tx_message_unlocked(struct snd_sof_ipc *ipc, u32 header,
 		return ret;
 	}
 
-	ipc_log_header(sdev->dev, "ipc tx", msg->header);
+	ipc_log_header(sdev->dev, "ipc tx", msg->tx.header);
 
 	/* now wait for completion */
 	if (!ret)
@@ -806,14 +806,14 @@ struct snd_sof_ipc *snd_sof_ipc_init(struct snd_sof_dev *sdev)
 	msg->ipc_complete = true;
 
 	/* pre-allocate message data */
-	msg->msg_data = devm_kzalloc(sdev->dev, SOF_IPC_MSG_MAX_SIZE,
+	msg->tx.data = devm_kzalloc(sdev->dev, SOF_IPC_MSG_MAX_SIZE,
 				     GFP_KERNEL);
-	if (!msg->msg_data)
+	if (!msg->tx.data)
 		return NULL;
 
-	msg->reply_data = devm_kzalloc(sdev->dev, SOF_IPC_MSG_MAX_SIZE,
+	msg->rx.data = devm_kzalloc(sdev->dev, SOF_IPC_MSG_MAX_SIZE,
 				       GFP_KERNEL);
-	if (!msg->reply_data)
+	if (!msg->rx.data)
 		return NULL;
 
 	init_waitqueue_head(&msg->waitq);

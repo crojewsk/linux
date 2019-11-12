@@ -156,8 +156,8 @@ static bool cnl_compact_ipc_compress(struct snd_sof_ipc_msg *msg,
 {
 	struct sof_ipc_pm_gate *pm_gate;
 
-	if (msg->header == (SOF_IPC_GLB_PM_MSG | SOF_IPC_PM_GATE)) {
-		pm_gate = msg->msg_data;
+	if (msg->tx.header == (SOF_IPC_GLB_PM_MSG | SOF_IPC_PM_GATE)) {
+		pm_gate = msg->tx.data;
 
 		/* send the compact message via the primary register */
 		*dr = HDA_IPC_MSG_COMPACT | HDA_IPC_PM_GATE;
@@ -185,8 +185,8 @@ static int cnl_ipc_send_msg(struct snd_sof_dev *sdev,
 				  CNL_DSP_REG_HIPCIDR_BUSY | dr);
 	} else {
 		/* send the message via mailbox */
-		sof_mailbox_write(sdev, sdev->host_box.offset, msg->msg_data,
-				  msg->msg_size);
+		sof_mailbox_write(sdev, sdev->host_box.offset, msg->tx.data,
+				  msg->tx.size);
 		snd_sof_dsp_write(sdev, HDA_DSP_BAR, CNL_DSP_REG_HIPCIDR,
 				  CNL_DSP_REG_HIPCIDR_BUSY);
 	}
