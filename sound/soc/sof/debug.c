@@ -28,8 +28,9 @@ static int sof_debug_ipc_flood_test(struct snd_sof_dev *sdev,
 				    unsigned long ipc_duration_ms,
 				    unsigned long ipc_count)
 {
+	struct sof_ipc_message request, reply;
 	struct sof_ipc_cmd_hdr hdr;
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 	u64 min_response_time = U64_MAX;
 	ktime_t start, end, test_end;
 	u64 avg_response_time = 0;
@@ -49,8 +50,12 @@ static int sof_debug_ipc_flood_test(struct snd_sof_dev *sdev,
 	/* send test IPC's */
 	while (1) {
 		start = ktime_get();
-		ret = sof_ipc_tx_message(sdev->ipc, hdr.cmd, &hdr, hdr.size,
-					 &reply, sizeof(reply));
+		request.header = hdr.cmd;
+		request.data = &hdr;
+		request.size = hdr.size;
+		reply.data = &r;
+		reply.size = sizeof(r);
+		ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 		end = ktime_get();
 
 		if (ret < 0)

@@ -323,8 +323,9 @@ static int hda_dsp_wait_d0i3c_done(struct snd_sof_dev *sdev)
 
 static int hda_dsp_send_pm_gate_ipc(struct snd_sof_dev *sdev, u32 flags)
 {
+	struct sof_ipc_message request, reply;
 	struct sof_ipc_pm_gate pm_gate;
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 
 	memset(&pm_gate, 0, sizeof(pm_gate));
 
@@ -332,10 +333,14 @@ static int hda_dsp_send_pm_gate_ipc(struct snd_sof_dev *sdev, u32 flags)
 	pm_gate.hdr.size = sizeof(pm_gate);
 	pm_gate.hdr.cmd = SOF_IPC_GLB_PM_MSG | SOF_IPC_PM_GATE;
 	pm_gate.flags = flags;
+	request.header = pm_gate.hdr.cmd;
+	request.data = &pm_gate;
+	request.size = sizeof(pm_gate);
+	reply.data = &r;
+	reply.size = sizeof(r);
 
 	/* send pm_gate ipc to dsp */
-	return sof_ipc_tx_message(sdev->ipc, pm_gate.hdr.cmd, &pm_gate,
-				  sizeof(pm_gate), &reply, sizeof(reply));
+	return sof_ipc_tx_message(sdev->ipc, request, &reply);
 }
 
 int hda_dsp_set_power_state(struct snd_sof_dev *sdev,

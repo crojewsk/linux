@@ -98,6 +98,7 @@ static int sof_pcm_hw_params(struct snd_soc_component *component,
 			     struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
@@ -192,10 +193,14 @@ static int sof_pcm_hw_params(struct snd_soc_component *component,
 	}
 
 	dev_dbg(sdev->dev, "stream_tag %d", pcm.params.stream_tag);
+	request.header = pcm.hdr.cmd;
+	request.data = &pcm;
+	request.size = sizeof(pcm);
+	reply.data = &ipc_params_reply;
+	reply.size = sizeof(ipc_params_reply);
 
 	/* send IPC to the DSP */
-	ret = sof_ipc_tx_message(sdev->ipc, pcm.hdr.cmd, &pcm, sizeof(pcm),
-				 &ipc_params_reply, sizeof(ipc_params_reply));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0) {
 		dev_err(sdev->dev, "error: hw params ipc failed for stream %d\n",
 			pcm.params.stream_tag);
@@ -218,17 +223,23 @@ static int sof_pcm_dsp_pcm_free(struct snd_pcm_substream *substream,
 				struct snd_sof_dev *sdev,
 				struct snd_sof_pcm *spcm)
 {
+	struct sof_ipc_message request, reply;
 	struct sof_ipc_stream stream;
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 	int ret;
 
 	stream.hdr.size = sizeof(stream);
 	stream.hdr.cmd = SOF_IPC_GLB_STREAM_MSG | SOF_IPC_STREAM_PCM_FREE;
 	stream.comp_id = spcm->stream[substream->stream].comp_id;
 
+	request.header = stream.hdr.cmd;
+	request.data = &stream;
+	request.size = sizeof(stream);
+	reply.data = &r;
+	reply.size = sizeof(r);
+
 	/* send IPC to the DSP */
-	ret = sof_ipc_tx_message(sdev->ipc, stream.hdr.cmd, &stream,
-				 sizeof(stream), &reply, sizeof(reply));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (!ret)
 		spcm->prepared[substream->stream] = false;
 
@@ -313,11 +324,12 @@ static int sof_pcm_prepare(struct snd_soc_component *component,
 static int sof_pcm_trigger(struct snd_soc_component *component,
 			   struct snd_pcm_substream *substream, int cmd)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
 	struct snd_sof_pcm *spcm;
 	struct sof_ipc_stream stream;
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 	bool reset_hw_params = false;
 	bool ipc_first = false;
 	int ret;
@@ -407,9 +419,14 @@ static int sof_pcm_trigger(struct snd_soc_component *component,
 	if (!ipc_first)
 		snd_sof_pcm_platform_trigger(sdev, substream, cmd);
 
+	request.header = stream.hdr.cmd;
+	request.data = &stream;
+	request.size = sizeof(stream);
+	reply.data = &r;
+	reply.size = sizeof(r);
+
 	/* send IPC to the DSP */
-	ret = sof_ipc_tx_message(sdev->ipc, stream.hdr.cmd, &stream,
-				 sizeof(stream), &reply, sizeof(reply));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 
 	/* need to STOP DMA even if STOP IPC failed */
 	if (ipc_first)

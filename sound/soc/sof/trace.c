@@ -156,6 +156,7 @@ static int trace_debugfs_create(struct snd_sof_dev *sdev)
 
 int snd_sof_init_trace_ipc(struct snd_sof_dev *sdev)
 {
+	struct sof_ipc_message request, reply;
 	struct sof_ipc_fw_ready *ready = &sdev->fw_ready;
 	struct sof_ipc_fw_version *v = &ready->version;
 	struct sof_ipc_dma_trace_params_ext params;
@@ -195,10 +196,14 @@ int snd_sof_init_trace_ipc(struct snd_sof_dev *sdev)
 	}
 	dev_dbg(sdev->dev, "stream_tag: %d\n", params.stream_tag);
 
+	request.header = params.hdr.cmd;
+	request.data = &params;
+	request.size = sizeof(params);
+	reply.data = &ipc_reply;
+	reply.size = sizeof(ipc_reply);
+
 	/* send IPC to the DSP */
-	ret = sof_ipc_tx_message(sdev->ipc,
-				 params.hdr.cmd, &params, sizeof(params),
-				 &ipc_reply, sizeof(ipc_reply));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0) {
 		dev_err(sdev->dev,
 			"error: can't set params for DMA for trace %d\n", ret);

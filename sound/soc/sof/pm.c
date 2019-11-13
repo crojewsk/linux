@@ -71,21 +71,26 @@ static int sof_restore_pipelines(struct snd_sof_dev *sdev)
 
 	/* restore pipeline components */
 	list_for_each_entry_reverse(swidget, &sdev->widget_list, list) {
+		struct sof_ipc_message request, reply;
 		struct sof_ipc_comp_reply r;
 
 		/* skip if there is no private data */
 		if (!swidget->private)
 			continue;
 
+		reply.data = &r;
+		reply.size = sizeof(r);
+
 		switch (swidget->id) {
 		case snd_soc_dapm_dai_in:
 		case snd_soc_dapm_dai_out:
 			dai = swidget->private;
 			comp_dai = &dai->comp_dai;
-			ret = sof_ipc_tx_message(sdev->ipc,
-						 comp_dai->comp.hdr.cmd,
-						 comp_dai, sizeof(*comp_dai),
-						 &r, sizeof(r));
+			request.header = comp_dai->comp.hdr.cmd;
+			request.data = comp_dai;
+			request.size = sizeof(*comp_dai);
+
+			ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 			break;
 		case snd_soc_dapm_scheduler:
 
@@ -100,9 +105,11 @@ static int sof_restore_pipelines(struct snd_sof_dev *sdev)
 			break;
 		default:
 			hdr = swidget->private;
-			ret = sof_ipc_tx_message(sdev->ipc, hdr->cmd,
-						 swidget->private, hdr->size,
-						 &r, sizeof(r));
+			request.header = hdr->cmd;
+			request.data = swidget->private;
+			request.size = sizeof(hdr->size);
+
+			ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 			break;
 		}
 		if (ret < 0) {
@@ -116,20 +123,23 @@ static int sof_restore_pipelines(struct snd_sof_dev *sdev)
 
 	/* restore pipeline connections */
 	list_for_each_entry_reverse(sroute, &sdev->route_list, list) {
+		struct sof_ipc_message request, reply;
 		struct sof_ipc_pipe_comp_connect *connect;
-		struct sof_ipc_reply reply;
+		struct sof_ipc_reply r;
 
 		/* skip if there's no private data */
 		if (!sroute->private)
 			continue;
 
 		connect = sroute->private;
+		request.header = connect->hdr.cmd;
+		request.data = connect;
+		request.size = sizeof(*connect);
+		reply.data = &r;
+		reply.size = sizeof(r);
 
 		/* send ipc */
-		ret = sof_ipc_tx_message(sdev->ipc,
-					 connect->hdr.cmd,
-					 connect, sizeof(*connect),
-					 &reply, sizeof(reply));
+		ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 		if (ret < 0) {
 			dev_err(sdev->dev,
 				"error: failed to load route sink %s control %s source %s\n",
@@ -144,7 +154,8 @@ static int sof_restore_pipelines(struct snd_sof_dev *sdev)
 
 	/* restore dai links */
 	list_for_each_entry_reverse(dai, &sdev->dai_list, list) {
-		struct sof_ipc_reply reply;
+		struct sof_ipc_message request, reply;
+		struct sof_ipc_reply r;
 		struct sof_ipc_dai_config *config = dai->dai_config;
 
 		if (!config) {
@@ -162,11 +173,13 @@ static int sof_restore_pipelines(struct snd_sof_dev *sdev)
 		if (config->type == SOF_DAI_INTEL_HDA)
 			config->hda.link_dma_ch = DMA_CHAN_INVALID;
 
-		ret = sof_ipc_tx_message(sdev->ipc,
-					 config->hdr.cmd, config,
-					 config->hdr.size,
-					 &reply, sizeof(reply));
+		request.header = config->hdr.cmd;
+		request.data = config;
+		request.size = sizeof(config->hdr.size);
+		reply.data = &r;
+		reply.size = sizeof(r);
 
+		ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 		if (ret < 0) {
 			dev_err(sdev->dev,
 				"error: failed to set dai config for %s\n",
@@ -199,18 +212,23 @@ static int sof_restore_pipelines(struct snd_sof_dev *sdev)
 
 static int sof_send_pm_ctx_ipc(struct snd_sof_dev *sdev, int cmd)
 {
+	struct sof_ipc_message request, reply;
 	struct sof_ipc_pm_ctx pm_ctx;
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 
 	memset(&pm_ctx, 0, sizeof(pm_ctx));
 
 	/* configure ctx save ipc message */
 	pm_ctx.hdr.size = sizeof(pm_ctx);
 	pm_ctx.hdr.cmd = SOF_IPC_GLB_PM_MSG | cmd;
+	request.header = pm_ctx.hdr.cmd;
+	request.data = &pm_ctx;
+	request.size = sizeof(pm_ctx);
+	reply.data = &r;
+	reply.size = sizeof(r);
 
 	/* send ctx save ipc to dsp */
-	return sof_ipc_tx_message(sdev->ipc, pm_ctx.hdr.cmd, &pm_ctx,
-				 sizeof(pm_ctx), &reply, sizeof(reply));
+	return sof_ipc_tx_message(sdev->ipc, request, &reply);
 }
 
 static int sof_set_hw_params_upon_resume(struct snd_sof_dev *sdev)

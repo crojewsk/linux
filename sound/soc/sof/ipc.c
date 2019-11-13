@@ -197,7 +197,7 @@ static inline void ipc_log_header(struct device *dev, u8 *text, u32 cmd)
 
 /* wait for IPC message reply */
 static int tx_wait_done(struct snd_sof_ipc *ipc, struct snd_sof_ipc_msg *msg,
-			void *reply_data)
+			struct sof_ipc_message *reply)
 {
 	struct snd_sof_dev *sdev = ipc->sdev;
 	struct sof_ipc_cmd_hdr *hdr = msg->tx.data;
@@ -215,8 +215,11 @@ static int tx_wait_done(struct snd_sof_ipc *ipc, struct snd_sof_ipc_msg *msg,
 	} else {
 		/* copy the data returned from DSP */
 		ret = msg->reply_error;
-		if (msg->rx.size)
-			memcpy(reply_data, msg->rx.data, msg->rx.size);
+		if (reply) {
+			reply->header = msg->rx.header;
+			if (reply->data)
+				memcpy(reply->data, msg->rx.data, msg->rx.size);
+		}
 		if (ret < 0)
 			dev_err(sdev->dev, "error: ipc error for 0x%x size %zu\n",
 				hdr->cmd, msg->rx.size);
@@ -228,9 +231,9 @@ static int tx_wait_done(struct snd_sof_ipc *ipc, struct snd_sof_ipc_msg *msg,
 }
 
 /* send IPC message from host to DSP */
-static int sof_ipc_tx_message_unlocked(struct snd_sof_ipc *ipc, u32 header,
-				       void *msg_data, size_t msg_bytes,
-				       void *reply_data, size_t reply_bytes)
+static int sof_ipc_tx_message_unlocked(struct snd_sof_ipc *ipc,
+		struct sof_ipc_message request,
+		struct sof_ipc_message *reply)
 {
 	struct snd_sof_dev *sdev = ipc->sdev;
 	struct snd_sof_ipc_msg *msg;
@@ -248,14 +251,15 @@ static int sof_ipc_tx_message_unlocked(struct snd_sof_ipc *ipc, u32 header,
 	/* initialise the message */
 	msg = &ipc->msg;
 
-	msg->tx.header = header;
-	msg->tx.size = msg_bytes;
-	msg->rx.size = reply_bytes;
+	msg->tx.header = request.header;
+	msg->tx.size = request.size;
+	msg->rx.header = 0;
+	msg->rx.size = reply ? reply->size : 0;
 	msg->reply_error = 0;
 
 	/* attach any data */
-	if (msg_bytes)
-		memcpy(msg->tx.data, msg_data, msg_bytes);
+	if (request.size)
+		memcpy(msg->tx.data, request.data, request.size);
 
 	sdev->msg = msg;
 
@@ -278,28 +282,25 @@ static int sof_ipc_tx_message_unlocked(struct snd_sof_ipc *ipc, u32 header,
 
 	/* now wait for completion */
 	if (!ret)
-		ret = tx_wait_done(ipc, msg, reply_data);
+		ret = tx_wait_done(ipc, msg, reply);
 
 	return ret;
 }
 
 /* send IPC message from host to DSP */
-int sof_ipc_tx_message(struct snd_sof_ipc *ipc, u32 header,
-		       void *msg_data, size_t msg_bytes, void *reply_data,
-		       size_t reply_bytes)
+int sof_ipc_tx_message(struct snd_sof_ipc *ipc,
+		struct sof_ipc_message request,
+		struct sof_ipc_message *reply)
 {
 	int ret;
 
-	if (msg_bytes > SOF_IPC_MSG_MAX_SIZE ||
-	    reply_bytes > SOF_IPC_MSG_MAX_SIZE)
+	if (request.size > SOF_IPC_MSG_MAX_SIZE ||
+	    reply->size > SOF_IPC_MSG_MAX_SIZE)
 		return -ENOBUFS;
 
 	/* Serialise IPC TX */
 	mutex_lock(&ipc->tx_mutex);
-
-	ret = sof_ipc_tx_message_unlocked(ipc, header, msg_data, msg_bytes,
-					  reply_data, reply_bytes);
-
+	ret = sof_ipc_tx_message_unlocked(ipc, request, reply);
 	mutex_unlock(&ipc->tx_mutex);
 
 	return ret;
@@ -492,6 +493,7 @@ int snd_sof_ipc_stream_posn(struct snd_sof_dev *sdev,
 			    struct snd_sof_pcm *spcm, int direction,
 			    struct sof_ipc_stream_posn *posn)
 {
+	struct sof_ipc_message request, reply;
 	struct sof_ipc_stream stream;
 	int err;
 
@@ -500,10 +502,14 @@ int snd_sof_ipc_stream_posn(struct snd_sof_dev *sdev,
 	stream.hdr.cmd = SOF_IPC_GLB_STREAM_MSG | SOF_IPC_STREAM_POSITION;
 	stream.comp_id = spcm->stream[direction].comp_id;
 
+	request.header = stream.hdr.cmd;
+	request.data = &stream;
+	request.size = sizeof(stream);
+	reply.data = &posn;
+	reply.size = sizeof(*posn);
+
 	/* send IPC to the DSP */
-	err = sof_ipc_tx_message(sdev->ipc,
-				 stream.hdr.cmd, &stream, sizeof(stream), &posn,
-				 sizeof(*posn));
+	err = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (err < 0) {
 		dev_err(sdev->dev, "error: failed to get stream %d position\n",
 			stream.comp_id);
@@ -551,6 +557,7 @@ static int sof_set_get_large_ctrl_data(struct snd_sof_dev *sdev,
 				       struct sof_ipc_ctrl_data_params *sparams,
 				       bool send)
 {
+	struct sof_ipc_message request, reply;
 	struct sof_ipc_ctrl_data *partdata;
 	size_t send_bytes;
 	size_t offset = 0;
@@ -593,15 +600,16 @@ static int sof_set_get_large_ctrl_data(struct snd_sof_dev *sdev,
 		msg_bytes -= send_bytes;
 		partdata->elems_remaining = msg_bytes;
 
+		request.header = partdata->rhdr.hdr.cmd;
+		request.data = partdata;
+		request.size = partdata->rhdr.hdr.size;
+		reply.data = partdata;
+		reply.size = partdata->rhdr.hdr.size;
+
 		if (send)
 			memcpy(sparams->dst, sparams->src + offset, send_bytes);
 
-		err = sof_ipc_tx_message_unlocked(sdev->ipc,
-						  partdata->rhdr.hdr.cmd,
-						  partdata,
-						  partdata->rhdr.hdr.size,
-						  partdata,
-						  partdata->rhdr.hdr.size);
+		err = sof_ipc_tx_message_unlocked(sdev->ipc, request, &reply);
 		if (err < 0)
 			break;
 
@@ -627,6 +635,7 @@ int snd_sof_ipc_set_get_comp_data(struct snd_sof_ipc *ipc,
 				  enum sof_ipc_ctrl_cmd ctrl_cmd,
 				  bool send)
 {
+	struct sof_ipc_message request, reply;
 	struct sof_ipc_ctrl_data *cdata = scontrol->control_data;
 	struct snd_sof_dev *sdev = ipc->sdev;
 	struct sof_ipc_fw_ready *ready = &sdev->fw_ready;
@@ -689,11 +698,15 @@ int snd_sof_ipc_set_get_comp_data(struct snd_sof_ipc *ipc,
 	cdata->num_elems = sparams.elems;
 	cdata->elems_remaining = 0;
 
+	request.header = cdata->rhdr.hdr.cmd;
+	request.data = cdata;
+	request.size = cdata->rhdr.hdr.size;
+	reply.data = cdata;
+	reply.size = cdata->rhdr.hdr.size;
+
 	/* send normal size ipc in one part */
 	if (cdata->rhdr.hdr.size <= SOF_IPC_MSG_MAX_SIZE) {
-		err = sof_ipc_tx_message(sdev->ipc, cdata->rhdr.hdr.cmd, cdata,
-					 cdata->rhdr.hdr.size, cdata,
-					 cdata->rhdr.hdr.size);
+		err = sof_ipc_tx_message(sdev->ipc, request, &reply);
 
 		if (err < 0)
 			dev_err(sdev->dev, "error: set/get ctrl ipc comp %d\n",

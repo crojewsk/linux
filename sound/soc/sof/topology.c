@@ -52,6 +52,7 @@ struct sof_widget_data {
 /* send pcm params ipc */
 static int ipc_pcm_params(struct snd_sof_widget *swidget, int dir)
 {
+	struct sof_ipc_message request, reply;
 	struct sof_ipc_pcm_params_reply ipc_params_reply;
 	struct snd_sof_dev *sdev = swidget->sdev;
 	struct sof_ipc_pcm_params pcm;
@@ -98,9 +99,14 @@ static int ipc_pcm_params(struct snd_sof_widget *swidget, int dir)
 		return -EINVAL;
 	}
 
+	request.header = pcm.hdr.cmd;
+	request.data = &pcm;
+	request.size = sizeof(pcm);
+	reply.data = &ipc_params_reply;
+	reply.size = sizeof(ipc_params_reply);
+
 	/* send IPC to the DSP */
-	ret = sof_ipc_tx_message(sdev->ipc, pcm.hdr.cmd, &pcm, sizeof(pcm),
-				 &ipc_params_reply, sizeof(ipc_params_reply));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0)
 		dev_err(sdev->dev, "error: pcm params failed for %s\n",
 			swidget->widget->name);
@@ -111,9 +117,10 @@ static int ipc_pcm_params(struct snd_sof_widget *swidget, int dir)
  /* send stream trigger ipc */
 static int ipc_trigger(struct snd_sof_widget *swidget, int cmd)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = swidget->sdev;
 	struct sof_ipc_stream stream;
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 	int ret = 0;
 
 	/* set IPC stream params */
@@ -121,9 +128,14 @@ static int ipc_trigger(struct snd_sof_widget *swidget, int cmd)
 	stream.hdr.cmd = SOF_IPC_GLB_STREAM_MSG | cmd;
 	stream.comp_id = swidget->comp_id;
 
+	request.header = stream.hdr.cmd;
+	request.data = &stream;
+	request.size = sizeof(stream);
+	reply.data = &r;
+	reply.size = sizeof(r);
+
 	/* send IPC to the DSP */
-	ret = sof_ipc_tx_message(sdev->ipc, stream.hdr.cmd, &stream,
-				 sizeof(stream), &reply, sizeof(reply));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0)
 		dev_err(sdev->dev, "error: failed to trigger %s\n",
 			swidget->widget->name);
@@ -1189,6 +1201,7 @@ static int sof_control_load(struct snd_soc_component *scomp, int index,
 static int sof_control_unload(struct snd_soc_component *scomp,
 			      struct snd_soc_dobj *dobj)
 {
+	struct sof_ipc_message request;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct sof_ipc_free fcomp;
 	struct snd_sof_control *scontrol = dobj->private;
@@ -1198,14 +1211,15 @@ static int sof_control_unload(struct snd_soc_component *scomp,
 	fcomp.hdr.cmd = SOF_IPC_GLB_TPLG_MSG | SOF_IPC_TPLG_COMP_FREE;
 	fcomp.hdr.size = sizeof(fcomp);
 	fcomp.id = scontrol->comp_id;
+	request.header = fcomp.hdr.cmd;
+	request.data = &fcomp;
+	request.size = sizeof(fcomp);
 
 	kfree(scontrol->control_data);
 	list_del(&scontrol->list);
 	kfree(scontrol);
 	/* send IPC to the DSP */
-	return sof_ipc_tx_message(sdev->ipc,
-				  fcomp.hdr.cmd, &fcomp, sizeof(fcomp),
-				  NULL, 0);
+	return sof_ipc_tx_message(sdev->ipc, request, NULL);
 }
 
 /*
@@ -1266,6 +1280,7 @@ static int sof_widget_load_dai(struct snd_soc_component *scomp, int index,
 			       struct sof_ipc_comp_reply *r,
 			       struct snd_sof_dai *dai)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_tplg_private *private = &tw->priv;
 	struct sof_ipc_comp_dai comp_dai;
@@ -1302,12 +1317,16 @@ static int sof_widget_load_dai(struct snd_soc_component *scomp, int index,
 		swidget->widget->name, comp_dai.type, comp_dai.dai_index);
 	sof_dbg_comp_config(scomp, &comp_dai.config);
 
-	ret = sof_ipc_tx_message(sdev->ipc, comp_dai.comp.hdr.cmd,
-				 &comp_dai, sizeof(comp_dai), r, sizeof(*r));
+	request.header = comp_dai.comp.hdr.cmd;
+	request.data = &comp_dai;
+	request.size = sizeof(comp_dai);
+	reply.data = r;
+	reply.size = sizeof(*r);
 
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret == 0 && dai) {
 		dai->sdev = sdev;
-		memcpy(&dai->comp_dai, &comp_dai, sizeof(comp_dai));
+		memcpy(&dai->comp_dai, request.data, request.size);
 	}
 
 	return ret;
@@ -1322,6 +1341,7 @@ static int sof_widget_load_buffer(struct snd_soc_component *scomp, int index,
 				  struct snd_soc_tplg_dapm_widget *tw,
 				  struct sof_ipc_comp_reply *r)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_tplg_private *private = &tw->priv;
 	struct sof_ipc_buffer *buffer;
@@ -1352,9 +1372,13 @@ static int sof_widget_load_buffer(struct snd_soc_component *scomp, int index,
 		swidget->widget->name, buffer->size, buffer->caps);
 
 	swidget->private = buffer;
+	request.header = buffer->comp.hdr.cmd;
+	request.data = buffer;
+	request.size = sizeof(*buffer);
+	reply.data = r;
+	reply.size = sizeof(*r);
 
-	ret = sof_ipc_tx_message(sdev->ipc, buffer->comp.hdr.cmd, buffer,
-				 sizeof(*buffer), r, sizeof(*r));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0) {
 		dev_err(sdev->dev, "error: buffer %s load failed\n",
 			swidget->widget->name);
@@ -1393,6 +1417,7 @@ static int sof_widget_load_pcm(struct snd_soc_component *scomp, int index,
 			       struct snd_soc_tplg_dapm_widget *tw,
 			       struct sof_ipc_comp_reply *r)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_tplg_private *private = &tw->priv;
 	struct sof_ipc_comp_host *host;
@@ -1433,9 +1458,13 @@ static int sof_widget_load_pcm(struct snd_soc_component *scomp, int index,
 	sof_dbg_comp_config(scomp, &host->config);
 
 	swidget->private = host;
+	request.header = host->comp.hdr.cmd;
+	request.data = host;
+	request.size = sizeof(*host);
+	reply.data = r;
+	reply.size = sizeof(*r);
 
-	ret = sof_ipc_tx_message(sdev->ipc, host->comp.hdr.cmd, host,
-				 sizeof(*host), r, sizeof(*r));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret >= 0)
 		return ret;
 err:
@@ -1450,11 +1479,16 @@ int sof_load_pipeline_ipc(struct snd_sof_dev *sdev,
 			  struct sof_ipc_pipe_new *pipeline,
 			  struct sof_ipc_comp_reply *r)
 {
+	struct sof_ipc_message request, reply;
 	struct sof_ipc_pm_core_config pm_core_config;
 	int ret;
 
-	ret = sof_ipc_tx_message(sdev->ipc, pipeline->hdr.cmd, pipeline,
-				 sizeof(*pipeline), r, sizeof(*r));
+	request.header = pipeline->hdr.cmd;
+	request.data = pipeline;
+	request.size = sizeof(*pipeline);
+	reply.data = r;
+	reply.size = sizeof(*r);
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0) {
 		dev_err(sdev->dev, "error: load pipeline ipc failure\n");
 		return ret;
@@ -1481,11 +1515,14 @@ int sof_load_pipeline_ipc(struct snd_sof_dev *sdev,
 	/* configure CORE_ENABLE ipc message */
 	pm_core_config.hdr.size = sizeof(pm_core_config);
 	pm_core_config.hdr.cmd = SOF_IPC_GLB_PM_MSG | SOF_IPC_PM_CORE_ENABLE;
+	request.header = pm_core_config.hdr.cmd;
+	request.data = &pm_core_config;
+	request.size = sizeof(pm_core_config);
+	reply.data = &pm_core_config;
+	reply.size = sizeof(pm_core_config);
 
 	/* send ipc */
-	ret = sof_ipc_tx_message(sdev->ipc, pm_core_config.hdr.cmd,
-				 &pm_core_config, sizeof(pm_core_config),
-				 &pm_core_config, sizeof(pm_core_config));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0)
 		dev_err(sdev->dev, "error: core enable ipc failure\n");
 
@@ -1560,6 +1597,7 @@ static int sof_widget_load_mixer(struct snd_soc_component *scomp, int index,
 				 struct snd_soc_tplg_dapm_widget *tw,
 				 struct sof_ipc_comp_reply *r)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_tplg_private *private = &tw->priv;
 	struct sof_ipc_comp_mixer *mixer;
@@ -1590,9 +1628,13 @@ static int sof_widget_load_mixer(struct snd_soc_component *scomp, int index,
 	sof_dbg_comp_config(scomp, &mixer->config);
 
 	swidget->private = mixer;
+	request.header = mixer->comp.hdr.cmd;
+	request.data = mixer;
+	request.size = sizeof(*mixer);
+	reply.data = r;
+	reply.size = sizeof(*r);
 
-	ret = sof_ipc_tx_message(sdev->ipc, mixer->comp.hdr.cmd, mixer,
-				 sizeof(*mixer), r, sizeof(*r));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0)
 		kfree(mixer);
 
@@ -1607,6 +1649,7 @@ static int sof_widget_load_mux(struct snd_soc_component *scomp, int index,
 			       struct snd_soc_tplg_dapm_widget *tw,
 			       struct sof_ipc_comp_reply *r)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_tplg_private *private = &tw->priv;
 	struct sof_ipc_comp_mux *mux;
@@ -1637,9 +1680,13 @@ static int sof_widget_load_mux(struct snd_soc_component *scomp, int index,
 	sof_dbg_comp_config(scomp, &mux->config);
 
 	swidget->private = mux;
+	request.header = mux->comp.hdr.cmd;
+	request.data = mux;
+	request.size = sizeof(*mux);
+	reply.data = r;
+	reply.size = sizeof(*r);
 
-	ret = sof_ipc_tx_message(sdev->ipc, mux->comp.hdr.cmd, mux,
-				 sizeof(*mux), r, sizeof(*r));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0)
 		kfree(mux);
 
@@ -1655,6 +1702,7 @@ static int sof_widget_load_pga(struct snd_soc_component *scomp, int index,
 			       struct snd_soc_tplg_dapm_widget *tw,
 			       struct sof_ipc_comp_reply *r)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_tplg_private *private = &tw->priv;
 	struct sof_ipc_comp_volume *volume;
@@ -1715,8 +1763,13 @@ static int sof_widget_load_pga(struct snd_soc_component *scomp, int index,
 		}
 	}
 
-	ret = sof_ipc_tx_message(sdev->ipc, volume->comp.hdr.cmd, volume,
-				 sizeof(*volume), r, sizeof(*r));
+	request.header = volume->comp.hdr.cmd;
+	request.data = volume;
+	request.size = sizeof(*volume);
+	reply.data = r;
+	reply.size = sizeof(*r);
+
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret >= 0)
 		return ret;
 err:
@@ -1733,6 +1786,7 @@ static int sof_widget_load_src(struct snd_soc_component *scomp, int index,
 			       struct snd_soc_tplg_dapm_widget *tw,
 			       struct sof_ipc_comp_reply *r)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_tplg_private *private = &tw->priv;
 	struct sof_ipc_comp_src *src;
@@ -1773,9 +1827,13 @@ static int sof_widget_load_src(struct snd_soc_component *scomp, int index,
 	sof_dbg_comp_config(scomp, &src->config);
 
 	swidget->private = src;
+	request.header = src->comp.hdr.cmd;
+	request.data = src;
+	request.size = sizeof(*src);
+	reply.data = r;
+	reply.size = sizeof(*r);
 
-	ret = sof_ipc_tx_message(sdev->ipc, src->comp.hdr.cmd, src,
-				 sizeof(*src), r, sizeof(*r));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret >= 0)
 		return ret;
 err:
@@ -1792,6 +1850,7 @@ static int sof_widget_load_siggen(struct snd_soc_component *scomp, int index,
 				  struct snd_soc_tplg_dapm_widget *tw,
 				  struct sof_ipc_comp_reply *r)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_tplg_private *private = &tw->priv;
 	struct sof_ipc_comp_tone *tone;
@@ -1832,9 +1891,13 @@ static int sof_widget_load_siggen(struct snd_soc_component *scomp, int index,
 	sof_dbg_comp_config(scomp, &tone->config);
 
 	swidget->private = tone;
+	request.header = tone->comp.hdr.cmd;
+	request.data = tone;
+	request.size = sizeof(*tone);
+	reply.data = r;
+	reply.size = sizeof(*r);
 
-	ret = sof_ipc_tx_message(sdev->ipc, tone->comp.hdr.cmd, tone,
-				 sizeof(*tone), r, sizeof(*r));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret >= 0)
 		return ret;
 err:
@@ -1920,6 +1983,7 @@ static int sof_process_load(struct snd_soc_component *scomp, int index,
 			    struct sof_ipc_comp_reply *r,
 			    int type)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_dapm_widget *widget = swidget->widget;
 	struct snd_soc_tplg_private *private = &tw->priv;
@@ -2005,9 +2069,13 @@ static int sof_process_load(struct snd_soc_component *scomp, int index,
 
 	process->size = ipc_data_size;
 	swidget->private = process;
+	request.header = process->comp.hdr.cmd;
+	request.data = process;
+	request.size = ipc_size;
+	reply.data = r;
+	reply.size = sizeof(*r);
 
-	ret = sof_ipc_tx_message(sdev->ipc, process->comp.hdr.cmd, process,
-				 ipc_size, r, sizeof(*r));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 
 	if (ret < 0) {
 		dev_err(sdev->dev, "error: create process failed\n");
@@ -2551,9 +2619,10 @@ static int sof_link_ssp_load(struct snd_soc_component *scomp, int index,
 			     struct snd_soc_tplg_hw_config *hw_config,
 			     struct sof_ipc_dai_config *config)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_tplg_private *private = &cfg->priv;
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 	u32 size = sizeof(*config);
 	int ret;
 
@@ -2602,11 +2671,14 @@ static int sof_link_ssp_load(struct snd_soc_component *scomp, int index,
 		return -EINVAL;
 	}
 
-	/* send message to DSP */
-	ret = sof_ipc_tx_message(sdev->ipc,
-				 config->hdr.cmd, config, size, &reply,
-				 sizeof(reply));
+	request.header = config->hdr.cmd;
+	request.data = config;
+	request.size = size;
+	reply.data = &r;
+	reply.size = sizeof(r);
 
+	/* send message to DSP */
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0) {
 		dev_err(sdev->dev, "error: failed to set DAI config for SSP%d\n",
 			config->dai_index);
@@ -2638,9 +2710,10 @@ static int sof_link_esai_load(struct snd_soc_component *scomp, int index,
 			      struct snd_soc_tplg_hw_config *hw_config,
 			      struct sof_ipc_dai_config *config)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_tplg_private *private = &cfg->priv;
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 	u32 size = sizeof(*config);
 	int ret;
 
@@ -2681,10 +2754,14 @@ static int sof_link_esai_load(struct snd_soc_component *scomp, int index,
 		return -EINVAL;
 	}
 
+	request.header = config->hdr.cmd;
+	request.data = config;
+	request.size = size;
+	reply.data = &r;
+	reply.size = sizeof(r);
+
 	/* send message to DSP */
-	ret = sof_ipc_tx_message(sdev->ipc,
-				 config->hdr.cmd, config, size, &reply,
-				 sizeof(reply));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0) {
 		dev_err(sdev->dev, "error: failed to set DAI config for ESAI%d\n",
 			config->dai_index);
@@ -2706,10 +2783,11 @@ static int sof_link_dmic_load(struct snd_soc_component *scomp, int index,
 			      struct snd_soc_tplg_hw_config *hw_config,
 			      struct sof_ipc_dai_config *config)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct snd_soc_tplg_private *private = &cfg->priv;
 	struct sof_ipc_dai_config *ipc_config;
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 	struct sof_ipc_fw_ready *ready = &sdev->fw_ready;
 	struct sof_ipc_fw_version *v = &ready->version;
 	u32 size;
@@ -2802,10 +2880,14 @@ static int sof_link_dmic_load(struct snd_soc_component *scomp, int index,
 		ipc_config->dmic.reserved_2 = ipc_config->dmic.fifo_bits;
 	}
 
+	request.header = ipc_config->hdr.cmd;
+	request.data = ipc_config;
+	request.size = size;
+	reply.data = &r;
+	reply.size = sizeof(r);
+
 	/* send message to DSP */
-	ret = sof_ipc_tx_message(sdev->ipc,
-				 ipc_config->hdr.cmd, ipc_config, size, &reply,
-				 sizeof(reply));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 
 	if (ret < 0) {
 		dev_err(sdev->dev,
@@ -2836,7 +2918,8 @@ static int sof_link_hda_process(struct snd_sof_dev *sdev,
 				struct snd_soc_dai_link *link,
 				struct sof_ipc_dai_config *config)
 {
-	struct sof_ipc_reply reply;
+	struct sof_ipc_message request, reply;
+	struct sof_ipc_reply r;
 	u32 size = sizeof(*config);
 	struct snd_sof_dai *sof_dai;
 	int found = 0;
@@ -2858,11 +2941,14 @@ static int sof_link_hda_process(struct snd_sof_dev *sdev,
 				return -ENOMEM;
 
 			sof_dai->cpu_dai_name = link->cpus->dai_name;
+			request.header = config->hdr.cmd;
+			request.data = config;
+			request.size = size;
+			reply.data = &r;
+			reply.size = sizeof(r);
 
 			/* send message to DSP */
-			ret = sof_ipc_tx_message(sdev->ipc,
-						 config->hdr.cmd, config, size,
-						 &reply, sizeof(reply));
+			ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 
 			if (ret < 0) {
 				dev_err(sdev->dev, "error: failed to set DAI config for direction:%d of HDA dai %d\n",
@@ -2934,18 +3020,22 @@ static int sof_link_alh_load(struct snd_soc_component *scomp, int index,
 			     struct snd_soc_tplg_hw_config *hw_config,
 			     struct sof_ipc_dai_config *config)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 	u32 size = sizeof(*config);
 	int ret;
 
 	/* init IPC */
 	config->hdr.size = size;
+	request.header = config->hdr.cmd;
+	request.data = config;
+	request.size = size;
+	reply.data = &r;
+	reply.size = sizeof(r);
 
 	/* send message to DSP */
-	ret = sof_ipc_tx_message(sdev->ipc,
-				 config->hdr.cmd, config, size, &reply,
-				 sizeof(reply));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 
 	if (ret < 0) {
 		dev_err(sdev->dev, "error: failed to set DAI config for ALH %d\n",
@@ -3151,12 +3241,13 @@ found:
 static int sof_route_load(struct snd_soc_component *scomp, int index,
 			  struct snd_soc_dapm_route *route)
 {
+	struct sof_ipc_message request, reply;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 	struct sof_ipc_pipe_comp_connect *connect;
 	struct snd_sof_widget *source_swidget, *sink_swidget;
 	struct snd_soc_dobj *dobj = &route->dobj;
 	struct snd_sof_route *sroute;
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 	int ret = 0;
 
 	/* allocate memory for sroute and connect */
@@ -3232,10 +3323,12 @@ static int sof_route_load(struct snd_soc_component *scomp, int index,
 		ret = 0;
 		goto err;
 	} else {
-		ret = sof_ipc_tx_message(sdev->ipc,
-					 connect->hdr.cmd,
-					 connect, sizeof(*connect),
-					 &reply, sizeof(reply));
+		request.header = connect->hdr.cmd;
+		request.data = connect;
+		request.size = sizeof(*connect);
+		reply.data = &r;
+		reply.size = sizeof(r);
+		ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 
 		/* check IPC return value */
 		if (ret < 0) {
@@ -3247,12 +3340,12 @@ static int sof_route_load(struct snd_soc_component *scomp, int index,
 		}
 
 		/* check IPC reply */
-		if (reply.error < 0) {
+		if (r.error < 0) {
 			dev_err(sdev->dev, "error: DSP failed to add route sink %s control %s source %s result %d\n",
 				route->sink,
 				route->control ? route->control : "none",
-				route->source, reply.error);
-			ret = reply.error;
+				route->source, r.error);
+			ret = r.error;
 			goto err;
 		}
 
@@ -3318,8 +3411,9 @@ static int snd_sof_cache_kcontrol_val(struct snd_sof_dev *sdev)
 int snd_sof_complete_pipeline(struct snd_sof_dev *sdev,
 			      struct snd_sof_widget *swidget)
 {
+	struct sof_ipc_message request, reply;
 	struct sof_ipc_pipe_ready ready;
-	struct sof_ipc_reply reply;
+	struct sof_ipc_reply r;
 	int ret;
 
 	dev_dbg(sdev->dev, "tplg: complete pipeline %s id %d\n",
@@ -3329,10 +3423,13 @@ int snd_sof_complete_pipeline(struct snd_sof_dev *sdev,
 	ready.hdr.size = sizeof(ready);
 	ready.hdr.cmd = SOF_IPC_GLB_TPLG_MSG | SOF_IPC_TPLG_PIPE_COMPLETE;
 	ready.comp_id = swidget->comp_id;
+	request.header = ready.hdr.cmd;
+	request.data = &ready;
+	request.size = sizeof(ready);
+	reply.data = &r;
+	reply.size = sizeof(r);
 
-	ret = sof_ipc_tx_message(sdev->ipc,
-				 ready.hdr.cmd, &ready, sizeof(ready), &reply,
-				 sizeof(reply));
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
 	if (ret < 0)
 		return ret;
 	return 1;

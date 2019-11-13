@@ -531,9 +531,9 @@ int snd_sof_dsp_mailbox_init(struct snd_sof_dev *sdev, u32 dspbox,
 			     size_t dspbox_size, u32 hostbox,
 			     size_t hostbox_size);
 int snd_sof_ipc_valid(struct snd_sof_dev *sdev);
-int sof_ipc_tx_message(struct snd_sof_ipc *ipc, u32 header,
-		       void *msg_data, size_t msg_bytes, void *reply_data,
-		       size_t reply_bytes);
+int sof_ipc_tx_message(struct snd_sof_ipc *ipc,
+		       struct sof_ipc_message request,
+		       struct sof_ipc_message *reply);
 struct snd_sof_widget *snd_sof_find_swidget(struct snd_sof_dev *sdev,
 					    const char *name);
 struct snd_sof_widget *snd_sof_find_swidget_sname(struct snd_sof_dev *sdev,
