@@ -108,12 +108,12 @@ static const struct sof_dev_desc cnl_desc = {
 	.resindex_imr_base	= -1,
 	.irqindex_host_ipc	= -1,
 	.resindex_dma_base	= -1,
-	.chip_info = &cnl_chip_info,
+	.chip_info = &cavs_cnl_chip_info,
 	.default_fw_path = "intel/sof",
 	.default_tplg_path = "intel/sof-tplg",
 	.nocodec_fw_filename = "sof-cnl.ri",
 	.nocodec_tplg_filename = "sof-cnl-nocodec.tplg",
-	.ops = &sof_cnl_ops,
+	.ops = &sof_cavs_cnl_ops,
 	.arch_ops = &sof_xtensa_arch_ops
 };
 #endif
