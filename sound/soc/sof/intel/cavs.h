@@ -64,6 +64,12 @@ union cavs_module_msg {
 		};
 		union {
 			u32 val;
+			struct {
+				u32 data_off_size:20;
+				u32 large_param_id:8;
+				u32 final_block:1;
+				u32 init_block:1;
+			} large_config;
 		} ext;
 	};
 } __packed;
@@ -86,6 +92,12 @@ union cavs_reply_msg {
 		};
 		union {
 			u32 val;
+			struct {
+				u32 data_off_size:20;
+				u32 large_param_id:8;
+				u32 final_block:1;
+				u32 init_block:1;
+			} large_config;
 		} ext;
 	};
 } __packed;
@@ -130,5 +142,11 @@ int cavs_ipc_process_notification(struct snd_sof_dev *sdev, u64 header);
 
 /* Generic cAVS sof handlers */
 int cavs_fw_ready(struct snd_sof_dev *sdev, u32 msg_id);
+
+/* IPC messages */
+int cavs_ipc_large_config_get(struct snd_sof_dev *sdev,
+		u16 module_id, u8 instance_id,
+		u32 data_size, u8 param_id,
+		u32 **payload, size_t *bytes);
 
 #endif
