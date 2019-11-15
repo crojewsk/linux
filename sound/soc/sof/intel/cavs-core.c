@@ -72,3 +72,20 @@ int cavs_fw_ready(struct snd_sof_dev *sdev, u32 msg_id)
 
 	return 0;
 }
+
+int cavs_post_fw_run(struct snd_sof_dev *sdev)
+{
+	int ret;
+
+	/* do the standard procedures first */
+	ret = hda_dsp_post_fw_run(sdev);
+	if (ret < 0)
+		return ret;
+
+	/* proceed with retrieval of fw and hw data */
+	ret = cavs_ipc_fw_config_get(sdev);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}

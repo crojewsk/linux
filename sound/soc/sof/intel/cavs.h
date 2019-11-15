@@ -146,6 +146,7 @@ int cavs_ipc_process_notification(struct snd_sof_dev *sdev, u64 header);
 
 /* Generic cAVS sof handlers */
 int cavs_fw_ready(struct snd_sof_dev *sdev, u32 msg_id);
+int cavs_post_fw_run(struct snd_sof_dev *sdev);
 
 /* IPC messages */
 int cavs_ipc_large_config_get(struct snd_sof_dev *sdev,

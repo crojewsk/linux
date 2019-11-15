@@ -197,7 +197,7 @@ const struct snd_sof_dsp_ops sof_cavs_cnl_ops = {
 	.load_firmware = snd_sof_load_firmware_raw,
 	.pre_fw_run = hda_dsp_pre_fw_run,
 	.run = hda_dsp_cl_boot_firmware,
-	.post_fw_run = hda_dsp_post_fw_run,
+	.post_fw_run = cavs_post_fw_run,
 
 	.core_power_up = hda_dsp_enable_core,
 	.core_power_down = hda_dsp_core_reset_power_down,
