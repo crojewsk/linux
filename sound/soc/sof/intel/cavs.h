@@ -74,6 +74,10 @@ union cavs_module_msg {
 	};
 } __packed;
 
+enum cavs_basefw_runtime_param {
+	CAVS_BASEFW_FIRMWARE_CONFIG = 7,
+};
+
 enum cavs_notify_msg_type {
 	CAVS_NOTIFY_FW_READY = 8,
 };
@@ -148,5 +152,7 @@ int cavs_ipc_large_config_get(struct snd_sof_dev *sdev,
 		u16 module_id, u8 instance_id,
 		u32 data_size, u8 param_id,
 		u32 **payload, size_t *bytes);
+
+int cavs_ipc_fw_config_get(struct snd_sof_dev *sdev);
 
 #endif

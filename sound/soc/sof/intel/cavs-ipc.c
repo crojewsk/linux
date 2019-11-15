@@ -52,3 +52,16 @@ int cavs_ipc_large_config_get(struct snd_sof_dev *sdev,
 	return ret;
 }
 
+int cavs_ipc_fw_config_get(struct snd_sof_dev *sdev)
+{
+	size_t bytes = 0;
+	u8 *payload = NULL;
+	int ret;
+
+	ret = cavs_ipc_large_config_get(sdev, 0, 0, 0,
+			CAVS_BASEFW_FIRMWARE_CONFIG,
+			(u32**)&payload, &bytes);
+
+	return 0;
+}
+
