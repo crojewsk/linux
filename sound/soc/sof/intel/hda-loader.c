@@ -279,6 +279,16 @@ static int cl_copy_fw(struct snd_sof_dev *sdev, struct hdac_ext_stream *stream)
 	return status;
 }
 
+#define EXT_MANIFEST_HDR_MAGIC	0x31454124
+
+struct ext_manifest_hdr {
+	u32 id;
+	u32 len;
+	u16 version_major;
+	u16 version_minor;
+	u32 entries;
+};
+
 int hda_dsp_cl_boot_firmware(struct snd_sof_dev *sdev)
 {
 	struct snd_sof_pdata *plat_data = sdev->pdata;
@@ -286,12 +296,20 @@ int hda_dsp_cl_boot_firmware(struct snd_sof_dev *sdev)
 	const struct sof_intel_dsp_desc *chip_info;
 	struct hdac_ext_stream *stream;
 	struct firmware stripped_firmware;
+	struct ext_manifest_hdr *hdr;
 	int ret, ret1, tag, i;
 
 	chip_info = desc->chip_info;
 
 	stripped_firmware.data = plat_data->fw->data;
 	stripped_firmware.size = plat_data->fw->size;
+
+	/* check for ext manifest and adjust accordingly */
+	hdr = (struct ext_manifest_hdr *)stripped_firmware.data;
+	if (hdr->id == EXT_MANIFEST_HDR_MAGIC) {
+		stripped_firmware.data += hdr->len;
+		stripped_firmware.size -= hdr->len;
+	}
 
 	/* init for booting wait */
 	init_waitqueue_head(&sdev->boot_wait);
