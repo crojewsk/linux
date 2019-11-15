@@ -11,6 +11,8 @@
 #ifndef __SOF_INTEL_CAVS_H
 #define __SOF_INTEL_CAVS_H
 
+#include "../sof-priv.h"
+
 enum cavs_msg_target {
 	CAVS_FW_GEN_MSG = 0,
 	CAVS_MOD_MSG = 1
@@ -122,5 +124,11 @@ union cavs_notify_msg {
 	__msg.val = hdr; \
 	__msg.dir == CAVS_MSG_REPLY; \
 })
+
+int cavs_ipc_process_reply(struct snd_sof_dev *sdev, u64 header);
+int cavs_ipc_process_notification(struct snd_sof_dev *sdev, u64 header);
+
+/* Generic cAVS sof handlers */
+int cavs_fw_ready(struct snd_sof_dev *sdev, u32 msg_id);
 
 #endif
