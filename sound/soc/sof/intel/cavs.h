@@ -91,6 +91,7 @@ enum cavs_module_msg_type {
 	CAVS_MOD_UNBIND = 6,
 	CAVS_MOD_SET_DX = 7,
 	CAVS_MOD_SET_D0IX = 8,
+	CAVS_MOD_DELETE_INSTANCE = 11,
 };
 
 union cavs_module_msg {
@@ -242,6 +243,8 @@ int cavs_ipc_init_instance(struct snd_sof_dev *sdev,
 		u16 module_id, u8 instance_id,
 		u8 ppl_id, u8 core_id, u8 domain,
 		void *param, u32 param_size);
+int cavs_ipc_delete_instance(struct snd_sof_dev *sdev,
+		u16 module_id, u8 instance_id);
 int cavs_ipc_bind(struct snd_sof_dev *sdev,
 		u16 module_id, u8 instance_id,
 		u16 dst_module_id, u8 dst_instance_id,

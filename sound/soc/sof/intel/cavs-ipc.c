@@ -110,6 +110,23 @@ int cavs_ipc_init_instance(struct snd_sof_dev *sdev,
 	return ret;
 }
 
+int cavs_ipc_delete_instance(struct snd_sof_dev *sdev,
+		u16 module_id, u8 instance_id)
+{
+	struct sof_ipc_message request = {0};
+	union cavs_module_msg msg = CAVS_MODULE_REQUEST(DELETE_INSTANCE);
+	int ret;
+
+	msg.module_id = module_id;
+	msg.instance_id = instance_id;
+	request.header = msg.val;
+
+	ret = sof_ipc_tx_message(sdev->ipc, request, NULL);
+	if (ret < 0)
+		dev_err(sdev->dev, "ipc: delete instance fail, ret: %d\n", ret);
+	return ret;
+}
+
 static int cavs_ipc_bind_unbind(struct snd_sof_dev *sdev, bool bind,
 		u16 module_id, u8 instance_id,
 		u16 dst_module_id, u8 dst_instance_id,
