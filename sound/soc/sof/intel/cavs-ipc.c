@@ -10,6 +10,80 @@
 
 #include "cavs.h"
 
+int cavs_ipc_create_pipeline(struct snd_sof_dev *sdev,
+		u16 req_size, u8 priority,
+		u8 instance_id, bool lp)
+{
+	struct sof_ipc_message request = {0};
+	union cavs_global_msg msg = CAVS_GLOBAL_REQUEST(CREATE_PIPELINE);
+	int ret;
+
+	msg.create_ppl.ppl_mem_size = req_size;
+	msg.create_ppl.ppl_priority = priority;
+	msg.create_ppl.instance_id = instance_id;
+	msg.ext.create_ppl.lp = lp;
+	request.header = msg.val;
+
+	ret = sof_ipc_tx_message(sdev->ipc, request, NULL);
+	if (ret < 0)
+		dev_err(sdev->dev, "ipc: create pipeline fail, ret: %d\n", ret);
+	return ret;
+}
+
+int cavs_ipc_delete_pipeline(struct snd_sof_dev *sdev, u8 instance_id)
+{
+	struct sof_ipc_message request = {0};
+	union cavs_global_msg msg = CAVS_GLOBAL_REQUEST(DELETE_PIPELINE);
+	int ret;
+
+	msg.ppl.instance_id = instance_id;
+	request.header = msg.val;
+
+	ret = sof_ipc_tx_message(sdev->ipc, request, NULL);
+	if (ret < 0)
+		dev_err(sdev->dev, "ipc: delete pipeline fail, ret: %d\n", ret);
+	return ret;
+}
+
+int cavs_ipc_set_pipeline_state(struct snd_sof_dev *sdev, u8 instance_id,
+		enum cavs_pipeline_state state)
+{
+	struct sof_ipc_message request = {0};
+	union cavs_global_msg msg = CAVS_GLOBAL_REQUEST(SET_PIPELINE_STATE);
+	int ret;
+
+	msg.set_ppl_state.ppl_id = instance_id;
+	msg.set_ppl_state.state = state;
+	request.header = msg.val;
+
+	ret = sof_ipc_tx_message(sdev->ipc, request, NULL);
+	if (ret < 0)
+		dev_err(sdev->dev,
+			"ipc: set pipeline state fail, ret: %d\n", ret);
+	return ret;
+}
+
+int cavs_ipc_get_pipeline_state(struct snd_sof_dev *sdev, u8 instance_id)
+{
+	struct sof_ipc_message request = {0}, reply = {0};
+	union cavs_global_msg msg = CAVS_GLOBAL_REQUEST(GET_PIPELINE_STATE);
+	union cavs_reply_msg rsp;
+	int ret;
+
+	msg.ppl.instance_id = instance_id;
+	request.header = msg.val;
+
+	ret = sof_ipc_tx_message(sdev->ipc, request, &reply);
+	if (ret < 0) {
+		dev_err(sdev->dev,
+			"ipc: get pipeline state fail, ret: %d\n", ret);
+		return ret;
+	}
+
+	rsp.val = reply.header;
+	return rsp.ext.get_ppl_state.state;
+}
+
 int cavs_ipc_large_config_get(struct snd_sof_dev *sdev,
 		u16 module_id, u8 instance_id,
 		u32 data_size, u8 param_id,
