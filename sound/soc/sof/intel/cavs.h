@@ -85,7 +85,10 @@ union cavs_global_msg {
 } __packed;
 
 enum cavs_module_msg_type {
+	CAVS_MOD_INIT_INSTANCE = 0,
 	CAVS_MOD_LARGE_CONFIG_GET = 3,
+	CAVS_MOD_BIND = 5,
+	CAVS_MOD_UNBIND = 6,
 };
 
 union cavs_module_msg {
@@ -104,11 +107,23 @@ union cavs_module_msg {
 		union {
 			u32 val;
 			struct {
+				u32 param_block_size:16;
+				u32 ppl_instance_id:8;
+				u32 core_id:4;
+				u32 proc_domain:1;
+			} init_instance;
+			struct {
 				u32 data_off_size:20;
 				u32 large_param_id:8;
 				u32 final_block:1;
 				u32 init_block:1;
 			} large_config;
+			struct {
+				u32 dst_module_id:16;
+				u32 dsp_instance_id:8;
+				u32 dst_queue:3;
+				u32 src_queue:3;
+			} bind_unbind;
 		} ext;
 	};
 } __packed;
@@ -207,6 +222,18 @@ int cavs_ipc_set_pipeline_state(struct snd_sof_dev *sdev, u8 instance_id,
 int cavs_ipc_get_pipeline_state(struct snd_sof_dev *sdev, u8 instance_id);
 
 /* module management */
+int cavs_ipc_init_instance(struct snd_sof_dev *sdev,
+		u16 module_id, u8 instance_id,
+		u8 ppl_id, u8 core_id, u8 domain,
+		void *param, u32 param_size);
+int cavs_ipc_bind(struct snd_sof_dev *sdev,
+		u16 module_id, u8 instance_id,
+		u16 dst_module_id, u8 dst_instance_id,
+		u8 dst_queue, u8 src_queue);
+int cavs_ipc_unbind(struct snd_sof_dev *sdev,
+		u16 module_id, u8 instance_id,
+		u16 dst_module_id, u8 dst_instance_id,
+		u8 dst_queue, u8 src_queue);
 int cavs_ipc_large_config_get(struct snd_sof_dev *sdev,
 		u16 module_id, u8 instance_id,
 		u32 data_size, u8 param_id,

@@ -84,6 +84,80 @@ int cavs_ipc_get_pipeline_state(struct snd_sof_dev *sdev, u8 instance_id)
 	return rsp.ext.get_ppl_state.state;
 }
 
+int cavs_ipc_init_instance(struct snd_sof_dev *sdev,
+		u16 module_id, u8 instance_id,
+		u8 ppl_id, u8 core_id, u8 domain,
+		void *param, u32 param_size)
+{
+	struct sof_ipc_message request;
+	union cavs_module_msg msg = CAVS_MODULE_REQUEST(INIT_INSTANCE);
+	int ret;
+
+	msg.module_id = module_id;
+	msg.instance_id = instance_id;
+	msg.ext.init_instance.param_block_size = param_size;
+	msg.ext.init_instance.ppl_instance_id = ppl_id;
+	msg.ext.init_instance.core_id = core_id;
+	msg.ext.init_instance.proc_domain = domain;
+
+	request.header = msg.val;
+	request.data = param;
+	request.size = param_size;
+
+	ret = sof_ipc_tx_message(sdev->ipc, request, NULL);
+	if (ret < 0)
+		dev_err(sdev->dev, "ipc: init instance fail, ret: %d\n", ret);
+	return ret;
+}
+
+static int cavs_ipc_bind_unbind(struct snd_sof_dev *sdev, bool bind,
+		u16 module_id, u8 instance_id,
+		u16 dst_module_id, u8 dst_instance_id,
+		u8 dst_queue, u8 src_queue)
+{
+	struct sof_ipc_message request = {0};
+	union cavs_module_msg msg = CAVS_MODULE_REQUEST(BIND);
+	int ret;
+
+	msg.module_id = module_id;
+	msg.instance_id = instance_id;
+	if (!bind)
+		msg.type = CAVS_MOD_UNBIND;
+	msg.ext.bind_unbind.dst_module_id = dst_module_id;
+	msg.ext.bind_unbind.dsp_instance_id = dst_instance_id;
+	msg.ext.bind_unbind.dst_queue = dst_queue;
+	msg.ext.bind_unbind.src_queue = src_queue;
+	request.header = msg.val;
+
+	ret = sof_ipc_tx_message(sdev->ipc, request, NULL);
+	if (ret < 0)
+		dev_err(sdev->dev, "ipc: %s instance fail, ret: %d\n",
+			bind ? "bind" : "unbind", ret);
+	return ret;
+}
+
+int cavs_ipc_bind(struct snd_sof_dev *sdev,
+		u16 module_id, u8 instance_id,
+		u16 dst_module_id, u8 dst_instance_id,
+		u8 dst_queue, u8 src_queue)
+{
+	return cavs_ipc_bind_unbind(sdev, true,
+				module_id, instance_id,
+				dst_module_id, dst_instance_id,
+				dst_queue, src_queue);
+}
+
+int cavs_ipc_unbind(struct snd_sof_dev *sdev,
+		u16 module_id, u8 instance_id,
+		u16 dst_module_id, u8 dst_instance_id,
+		u8 dst_queue, u8 src_queue)
+{
+	return cavs_ipc_bind_unbind(sdev, false,
+				module_id, instance_id,
+				dst_module_id, dst_instance_id,
+				dst_queue, src_queue);
+}
+
 int cavs_ipc_large_config_get(struct snd_sof_dev *sdev,
 		u16 module_id, u8 instance_id,
 		u32 data_size, u8 param_id,
