@@ -213,3 +213,35 @@ int cavs_ipc_fw_config_get(struct snd_sof_dev *sdev)
 	return 0;
 }
 
+int cavs_ipc_set_dx(struct snd_sof_dev *sdev,
+		struct cavs_dxstate_info *dx)
+{
+	struct sof_ipc_message request;
+	union cavs_module_msg msg = CAVS_MODULE_REQUEST(SET_DX);
+	int ret;
+
+	request.header = msg.val;
+	request.data = dx;
+	request.size = sizeof(*dx);
+
+	ret = sof_ipc_tx_message(sdev->ipc, request, NULL);
+	if (ret < 0)
+		dev_err(sdev->dev, "ipc: set dx fail, ret: %d\n", ret);
+	return ret;
+}
+
+int cavs_ipc_set_d0ix(struct snd_sof_dev *sdev, bool wake, bool streaming)
+{
+	struct sof_ipc_message request = {0};
+	union cavs_module_msg msg = CAVS_MODULE_REQUEST(SET_D0IX);
+	int ret;
+
+	msg.ext.set_d0ix.wake = wake;
+	msg.ext.set_d0ix.streaming = streaming;
+	request.header = msg.val;
+
+	ret = sof_ipc_tx_message(sdev->ipc, request, NULL);
+	if (ret < 0)
+		dev_err(sdev->dev, "ipc: set d0ix fail, ret: %d\n", ret);
+	return ret;
+}

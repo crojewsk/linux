@@ -89,6 +89,8 @@ enum cavs_module_msg_type {
 	CAVS_MOD_LARGE_CONFIG_GET = 3,
 	CAVS_MOD_BIND = 5,
 	CAVS_MOD_UNBIND = 6,
+	CAVS_MOD_SET_DX = 7,
+	CAVS_MOD_SET_D0IX = 8,
 };
 
 union cavs_module_msg {
@@ -124,9 +126,18 @@ union cavs_module_msg {
 				u32 dst_queue:3;
 				u32 src_queue:3;
 			} bind_unbind;
+			struct {
+				u32 wake:1;
+				u32 streaming:1;
+			} set_d0ix;
 		} ext;
 	};
 } __packed;
+
+struct cavs_dxstate_info {
+	u32 core_mask;
+	u32 dx_mask;
+};
 
 enum cavs_basefw_runtime_param {
 	CAVS_BASEFW_FIRMWARE_CONFIG = 7,
@@ -220,6 +231,11 @@ int cavs_ipc_delete_pipeline(struct snd_sof_dev *sdev, u8 instance_id);
 int cavs_ipc_set_pipeline_state(struct snd_sof_dev *sdev, u8 instance_id,
 		enum cavs_pipeline_state state);
 int cavs_ipc_get_pipeline_state(struct snd_sof_dev *sdev, u8 instance_id);
+
+/* power state messages */
+int cavs_ipc_set_dx(struct snd_sof_dev *sdev,
+		struct cavs_dxstate_info *dx);
+int cavs_ipc_set_d0ix(struct snd_sof_dev *sdev, bool wake, bool streaming);
 
 /* module management */
 int cavs_ipc_init_instance(struct snd_sof_dev *sdev,
