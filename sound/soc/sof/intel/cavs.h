@@ -213,6 +213,17 @@ union cavs_notify_msg {
 	__msg.dir == CAVS_MSG_REPLY; \
 })
 
+struct cavs_pipeline {
+	u32 instance_id;
+	struct list_head mod_list;
+};
+
+struct cavs_module {
+	u32 module_id;
+	u32 instance_id;
+	struct list_head node;
+};
+
 int cavs_ipc_process_reply(struct snd_sof_dev *sdev, u64 header);
 int cavs_ipc_process_notification(struct snd_sof_dev *sdev, u64 header);
 
