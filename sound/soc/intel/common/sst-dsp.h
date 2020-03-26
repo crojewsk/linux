@@ -27,6 +27,18 @@
  * The register naming can differ between products. Some products also
  * contain extra functionality.
  */
+#define WPT_SHIM_CS		0x00
+#define WPT_SHIM_ISC		0x18
+#define WPT_SHIM_ISD		0x20
+#define WPT_SHIM_IMC		0x28
+#define WPT_SHIM_IMD		0x30
+#define WPT_SHIM_IPCC		0x38
+#define WPT_SHIM_IPCD		0x40
+#define WPT_SHIM_CLKCTL	0x78
+#define WPT_SHIM_CS2		0x80
+#define WPT_SHIM_LTRC		0xE0
+#define WPT_SHIM_HMDC		0xE8
+
 #define SST_CSR			0x00
 #define SST_PISR		0x08
 #define SST_PIMR		0x10
