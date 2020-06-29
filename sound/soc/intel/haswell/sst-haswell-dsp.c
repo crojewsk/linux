@@ -466,6 +466,8 @@ static int hsw_set_dsp_D0(struct sst_dsp *sst)
 
 	/* clear reset */
 	sst_dsp_shim_update_bits_unlocked(sst, SST_CSR, SST_CSR_RST, 0);
+	/* generate int deassert message to fix inversed int logic */
+	sst_dsp_shim_write_unlocked(sst, SST_IMRX, 0x7fff0000);
 
 	/* disable DMA finish function for SSP0 & SSP1 */
 	sst_dsp_shim_update_bits_unlocked(sst, SST_CSR2, SST_CSR2_SDFD_SSP1,
