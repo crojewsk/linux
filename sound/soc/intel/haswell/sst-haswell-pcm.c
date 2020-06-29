@@ -1058,12 +1058,13 @@ static int hsw_pcm_probe(struct snd_soc_component *component)
 	if (ret < 0)
 		goto err;
 
+#if 0
 	/* enable runtime PM with auto suspend */
 	pm_runtime_set_autosuspend_delay(dev, SST_RUNTIME_SUSPEND_DELAY);
 	pm_runtime_use_autosuspend(dev);
 	pm_runtime_enable(dev);
 	pm_runtime_idle(dev);
-
+#endif
 	return 0;
 
 err:
