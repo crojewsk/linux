@@ -30,6 +30,8 @@
 #define SST_HSW_FW_LIB_SIGN		"$LIB"
 
 #define SST_WPT_SHIM_OFFSET	0xFB000
+#define SST_WPT_SSP_OFFSET(i)	(i * 0x1000)
+
 #define SST_LP_SHIM_OFFSET	0xE7000
 #define SST_WPT_IRAM_OFFSET	0xA0000
 #define SST_LP_IRAM_OFFSET	0x80000
@@ -255,8 +257,39 @@ static irqreturn_t hsw_irq(int irq, void *context)
 #define LTR_CTRL_DEFAULT_VALUE 0x0
 #define HMD_CTRL_DEFAULT_VALUE 0x0
 
+#define SSCR0	0x0
+#define SSCR1	0x4
+#define SSSR	0x8
+#define SSITR	0xC
+#define SSDR	0x10
+/* reserved 0x14-0x24 */
+#define SSTO	0x28
+#define PSP1	0x2C
+#define SSTSA	0x30
+#define SSRSA	0x34
+#define SSTSS	0x38
+/* reserved 0x3C */
+#define SSCR2	0x40
+#define PSP2	0x44
+
+#define SSCR0_DEFAULT_VALUE 0x0
+#define SSCR1_DEFAULT_VALUE 0x0
+#define SSSR_DEFAULT_VALUE 0xF004
+#define SSITR_DEFAULT_VALUE 0x0
+#define SSDR_DEFAULT_VALUE 0xC43893A3
+#define SSTO_DEFAULT_VALUE 0x0
+#define PSP1_DEFAULT_VALUE 0x0
+#define SSTSA_DEFAULT_VALUE 0x0
+#define SSRSA_DEFAULT_VALUE 0x0
+#define SSTSS_DEFAULT_VALUE 0x0
+#define SSCR2_DEFAULT_VALUE 0x0
+#define PSP2_DEFAULT_VALUE 0x0
+
 static void hsw_set_shim_defaults(struct sst_dsp *sst)
 {
+	u32 sspx_off;
+	int i;
+
 	sst_dsp_shim_write_unlocked(sst, SST_CSR, CSR_DEFAULT_VALUE);
 	sst_dsp_shim_write_unlocked(sst, SST_ISRX, ISC_DEFAULT_VALUE);
 	sst_dsp_shim_write_unlocked(sst, SST_ISRD, ISD_DEFAULT_VALUE);
@@ -268,6 +301,37 @@ static void hsw_set_shim_defaults(struct sst_dsp *sst)
 	sst_dsp_shim_write_unlocked(sst, SST_CSR2, CSR2_DEFAULT_VALUE);
 	sst_dsp_shim_write_unlocked(sst, SST_LTRC, LTR_CTRL_DEFAULT_VALUE);
 	sst_dsp_shim_write_unlocked(sst, SST_HMDC, HMD_CTRL_DEFAULT_VALUE);
+
+	for (i = 0; i < 2; i++) {
+		sspx_off = SST_WPT_SSP_OFFSET(i);
+
+		sst_dsp_shim_write_unlocked(sst, sspx_off + SSCR0,
+					    SSCR0_DEFAULT_VALUE);
+		sst_dsp_shim_write_unlocked(sst, sspx_off + SSCR1,
+					    SSCR1_DEFAULT_VALUE);
+		sst_dsp_shim_write_unlocked(sst, sspx_off + SSSR,
+					    SSSR_DEFAULT_VALUE);
+		sst_dsp_shim_write_unlocked(sst, sspx_off + SSITR,
+					    SSITR_DEFAULT_VALUE);
+		sst_dsp_shim_write_unlocked(sst, sspx_off + SSDR,
+					    SSDR_DEFAULT_VALUE);
+		/* reserved 0x14-0x24 */
+		sst_dsp_shim_write_unlocked(sst, sspx_off + SSTO,
+					    SSTO_DEFAULT_VALUE);
+		sst_dsp_shim_write_unlocked(sst, sspx_off + PSP1,
+					    PSP1_DEFAULT_VALUE);
+		sst_dsp_shim_write_unlocked(sst, sspx_off + SSTSA,
+					    SSTSA_DEFAULT_VALUE);
+		sst_dsp_shim_write_unlocked(sst, sspx_off + SSRSA,
+					    SSRSA_DEFAULT_VALUE);
+		sst_dsp_shim_write_unlocked(sst, sspx_off + SSTSS,
+					    SSTSS_DEFAULT_VALUE);
+		/* reserved 0x3C */
+		sst_dsp_shim_write_unlocked(sst, sspx_off + SSCR2,
+					    SSCR2_DEFAULT_VALUE);
+		sst_dsp_shim_write_unlocked(sst, sspx_off + PSP2,
+					    PSP2_DEFAULT_VALUE);
+	}
 }
 
 /* all clock-gating minus DCLCGE and DTCGE */
